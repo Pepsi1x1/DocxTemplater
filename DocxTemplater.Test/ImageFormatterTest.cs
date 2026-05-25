@@ -1,9 +1,8 @@
-﻿using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml;
 using DocxTemplater.Images;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
+using ImageMagick;
 
 namespace DocxTemplater.Test
 {
@@ -18,11 +17,9 @@ namespace DocxTemplater.Test
         public void ProcessTemplateWithDifferentImageTypes(string extension, string image)
         {
             var imageBytes = File.ReadAllBytes($"Resources/{image}.jpg");
-            var img = Image.Load(imageBytes);
-            Assert.That(img.Configuration.ImageFormatsManager.TryFindFormatByFileExtension(extension, out var format));
-            var memStream = new MemoryStream();
-            img.Save(memStream, format);
-            imageBytes = memStream.ToArray();
+            using var img = new MagickImage(imageBytes);
+            img.Format = GetFormatFromExtension(extension);
+            imageBytes = img.ToByteArray();
 
             using var fileStream = File.OpenRead("Resources/ImageFormatterTest.docx");
             var docTemplate = new DocxTemplate(fileStream);
@@ -65,12 +62,10 @@ namespace DocxTemplater.Test
             var imageBytes = File.ReadAllBytes("Resources/testImage.jpg");
 
             // change the size to be bigger than the page
-            var img = Image.Load(imageBytes);
-            img.Mutate(x => x.Resize(img.Width * 10, img.Height * 10));
-
-            var bigImgStream = new MemoryStream();
-            img.SaveAsJpeg(bigImgStream);
-            imageBytes = bigImgStream.ToArray();
+            using var img = new MagickImage(imageBytes);
+            img.Resize(img.Width * 10, img.Height * 10);
+            img.Format = MagickFormat.Jpeg;
+            imageBytes = img.ToByteArray();
 
             using var memStream = new MemoryStream();
             using var wpDocument = WordprocessingDocument.Create(memStream, WordprocessingDocumentType.Document);
@@ -85,6 +80,19 @@ namespace DocxTemplater.Test
             var result = docTemplate.Process();
             docTemplate.Validate();
             result.SaveAsFileAndOpenInWord();
+        }
+
+        private static MagickFormat GetFormatFromExtension(string extension)
+        {
+            return extension.ToLowerInvariant() switch
+            {
+                "jpg" or "jpeg" => MagickFormat.Jpeg,
+                "png" => MagickFormat.Png,
+                "gif" => MagickFormat.Gif,
+                "bmp" => MagickFormat.Bmp,
+                "tiff" or "tif" => MagickFormat.Tiff,
+                _ => throw new ArgumentOutOfRangeException(nameof(extension), extension, "Unsupported image format extension")
+            };
         }
     }
 }

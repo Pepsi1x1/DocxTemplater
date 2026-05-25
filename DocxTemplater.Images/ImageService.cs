@@ -1,11 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.IO;
+using System;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocxTemplater.ImageBase;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Metadata;
-using SixLabors.ImageSharp.Metadata.Profiles.Exif;
+using ImageMagick;
 using A = DocumentFormat.OpenXml.Drawing;
 using PIC = DocumentFormat.OpenXml.Drawing.Pictures; // http://schemas.openxmlformats.org/drawingml/2006/picture"
 
@@ -52,14 +51,14 @@ namespace DocxTemplater.Images
                     }
                     else
                     {
-                        using var image = Image.Load(imageBytes);
+                        using var image = new MagickImage(imageBytes);
                         ImageRotation exifRotation = ImageRotation.CreateFromUnits(0);
-                        if (image.Metadata?.ExifProfile?.TryGetValue(ExifTag.Orientation, out var orientationValue) == true)
+                        if (image.GetExifProfile()?.GetValue(ExifTag.Orientation)?.Value is ushort orientationValue)
                         {
-                            exifRotation = ImageRotation.CreateFromExifRotation((ExifRotation)orientationValue.Value);
+                            exifRotation = ImageRotation.CreateFromExifRotation((ExifRotation)orientationValue);
                         }
                         string imagePartRelId = null;
-                        var imagePartType = DetectPartTypeInfo(image.Metadata);
+                        var imagePartType = DetectPartTypeInfo(image.Format);
                         if (openXmlPartRootElement.OpenXmlPart is HeaderPart headerPart)
                         {
                             imagePartRelId = CreateImagePart(headerPart, imageBytes, imagePartType);
@@ -141,16 +140,17 @@ namespace DocxTemplater.Images
         ///     the size of the text box is adjusted to the size of the image.
         /// </summary>
 
-        private static PartTypeInfo DetectPartTypeInfo(ImageMetadata imageMetadata)
+        private static PartTypeInfo DetectPartTypeInfo(MagickFormat imageFormat)
         {
-            return imageMetadata switch
+            var format = imageFormat.ToString();
+            return format switch
             {
-                { DecodedImageFormat.Name: "TIFF" } => ImagePartType.Tiff,
-                { DecodedImageFormat.Name: "BMP" } => ImagePartType.Bmp,
-                { DecodedImageFormat.Name: "GIF" } => ImagePartType.Gif,
-                { DecodedImageFormat.Name: "JPEG" } => ImagePartType.Jpeg,
-                { DecodedImageFormat.Name: "PNG" } => ImagePartType.Png,
-                _ => throw new OpenXmlTemplateException($"Could not detect image format for image in {imageMetadata}")
+                var s when s.StartsWith("TIF", StringComparison.OrdinalIgnoreCase) => ImagePartType.Tiff,
+                var s when s.StartsWith("BMP", StringComparison.OrdinalIgnoreCase) => ImagePartType.Bmp,
+                var s when s.StartsWith("GIF", StringComparison.OrdinalIgnoreCase) => ImagePartType.Gif,
+                var s when s.StartsWith("JPG", StringComparison.OrdinalIgnoreCase) || s.StartsWith("JPEG", StringComparison.OrdinalIgnoreCase) => ImagePartType.Jpeg,
+                var s when s.StartsWith("PNG", StringComparison.OrdinalIgnoreCase) => ImagePartType.Png,
+                _ => throw new OpenXmlTemplateException($"Could not detect image format for image in {imageFormat}")
             };
         }
 
