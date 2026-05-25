@@ -75,7 +75,7 @@ namespace DocxTemplater.Images
                         {
                             throw new OpenXmlTemplateException("Could not find a valid image part");
                         }
-                        imageInfoInformation = new ImageInformation(image.Width, image.Height, imagePartRelId, exifRotation);
+                        imageInfoInformation = new ImageInformation((int)image.Width, (int)image.Height, imagePartRelId, exifRotation);
                         m_imagePartRelIdCache[imageBytes] = imageInfoInformation;
                     }
                 }
