@@ -1,7 +1,7 @@
 ﻿using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocxTemplater.Formatter;
-using SixLabors.ImageSharp;
+using ImageMagick;
 using System;
 using System.Text.RegularExpressions;
 using DocxTemplater.ImageBase;
@@ -45,7 +45,7 @@ namespace DocxTemplater.Images
                 }
 
             }
-            catch (Exception e) when (e is InvalidImageContentException or UnknownImageFormatException)
+            catch (Exception e) when (e is MagickException)
             {
                 throw new OpenXmlTemplateException("Could not detect image format", e);
             }
